@@ -5,6 +5,7 @@ import requests
 import zipfile
 import os
 import shutil
+import pydeck as pdk
 
 st.set_page_config(page_title="Open Buildings Downloader", layout="wide")
 
@@ -35,7 +36,27 @@ else:
 
 # Si une zone est définie
 if zone is not None:
-    st.map(zone)
+    zone = gpd.GeoDataFrame(geometry=[wkt.loads(polygone_wkt)], crs="EPSG:4326")
+
+import pydeck as pdk
+
+center = zone.geometry.centroid.iloc[0]
+layer = pdk.Layer(
+    "GeoJsonLayer",
+    data=zone.__geo_interface__,
+    get_fill_color="[180, 180, 255, 140]",
+    pickable=True,
+)
+
+view_state = pdk.ViewState(
+    latitude=center.y,
+    longitude=center.x,
+    zoom=6,
+    pitch=0
+)
+
+st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
+
 
     if st.button("🔍 Télécharger les bâtiments de cette zone"):
         with st.spinner("Téléchargement en cours..."):
