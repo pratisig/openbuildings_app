@@ -59,53 +59,66 @@ if zone is not None:
     # Télécharger les bâtiments
     if st.button("🔍 Télécharger les bâtiments de cette zone"):
         with st.spinner("Téléchargement en cours..."):
+            # Obtention des coordonnées de la zone
             bounds = zone.total_bounds
             minx, miny, maxx, maxy = bounds
+
+            # Vérification des coordonnées (on peut afficher les coordonnées dans le log pour debugging)
+            st.write(f"Coordonnées de la zone : minx={minx}, miny={miny}, maxx={maxx}, maxy={maxy}")
+            
+            # Construction de l'URL avec les coordonnées
             url = f"https://openbuildingsdownload.storage.googleapis.com/v3/polygons_s2_level_13_{miny:.4f}_{minx:.4f}_{maxy:.4f}_{maxx:.4f}.zip"
+            st.write(f"URL de téléchargement : {url}")  # Afficher l'URL pour vérification
 
             try:
-                response = requests.get(url)
+                # Vérification de la disponibilité des données sur le serveur
+                response = requests.head(url)  # Utilisation de HEAD pour vérifier la présence du fichier sans télécharger
                 if response.status_code == 200:
-                    zip_path = "batiments_temp.zip"
-                    with open(zip_path, "wb") as f:
-                        f.write(response.content)
+                    # Si le fichier existe, on le télécharge
+                    response = requests.get(url)
+                    if response.status_code == 200:
+                        zip_path = "batiments_temp.zip"
+                        with open(zip_path, "wb") as f:
+                            f.write(response.content)
 
-                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                        zip_ref.extractall("batiments_temp")
+                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                            zip_ref.extractall("batiments_temp")
 
-                    shp_file = next((f for f in os.listdir("batiments_temp") if f.endswith(".shp")), None)
-                    if not shp_file:
-                        st.error("Aucun fichier .shp trouvé dans l'archive.")
-                    else:
-                        batiments = gpd.read_file(os.path.join("batiments_temp", shp_file))
-                        batiments_zone = batiments[batiments.geometry.within(zone.unary_union)]
-
-                        # Choix de précision
-                        precision = st.selectbox("🎯 Précision minimale :", ["Toutes", "≥ 0.65", "≥ 0.7", "≥ 0.75"])
-                        if precision != "Toutes":
-                            seuil = float(precision.split("≥ ")[1])
-                            batiments_zone = batiments_zone[batiments_zone["confidence"] >= seuil]
-
-                        st.success(f"{len(batiments_zone)} bâtiments trouvés.")
-
-                        # Format d'export
-                        format = st.selectbox("💾 Format :", ["GeoJSON", "Shapefile"])
-
-                        if format == "GeoJSON":
-                            batiments_zone.to_file("batiments_export.geojson", driver="GeoJSON")
-                            with open("batiments_export.geojson", "rb") as f:
-                                st.download_button("⬇️ Télécharger (GeoJSON)", f, "batiments.geojson", "application/geo+json")
+                        shp_file = next((f for f in os.listdir("batiments_temp") if f.endswith(".shp")), None)
+                        if not shp_file:
+                            st.error("Aucun fichier .shp trouvé dans l'archive.")
                         else:
-                            batiments_zone.to_file("batiments_export.shp")
-                            shutil.make_archive("batiments_export", 'zip', ".", "batiments_export.shp")
-                            with open("batiments_export.zip", "rb") as f:
-                                st.download_button("⬇️ Télécharger (Shapefile)", f, "batiments.zip", "application/zip")
+                            batiments = gpd.read_file(os.path.join("batiments_temp", shp_file))
+                            batiments_zone = batiments[batiments.geometry.within(zone.unary_union)]
 
-                    # Nettoyage
-                    shutil.rmtree("batiments_temp", ignore_errors=True)
-                    if os.path.exists("batiments_temp.zip"):
-                        os.remove("batiments_temp.zip")
+                            # Choix de précision
+                            precision = st.selectbox("🎯 Précision minimale :", ["Toutes", "≥ 0.65", "≥ 0.7", "≥ 0.75"])
+                            if precision != "Toutes":
+                                seuil = float(precision.split("≥ ")[1])
+                                batiments_zone = batiments_zone[batiments_zone["confidence"] >= seuil]
+
+                            st.success(f"{len(batiments_zone)} bâtiments trouvés.")
+
+                            # Format d'export
+                            format = st.selectbox("💾 Format :", ["GeoJSON", "Shapefile"])
+
+                            if format == "GeoJSON":
+                                batiments_zone.to_file("batiments_export.geojson", driver="GeoJSON")
+                                with open("batiments_export.geojson", "rb") as f:
+                                    st.download_button("⬇️ Télécharger (GeoJSON)", f, "batiments.geojson", "application/geo+json")
+                            else:
+                                batiments_zone.to_file("batiments_export.shp")
+                                shutil.make_archive("batiments_export", 'zip', ".", "batiments_export.shp")
+                                with open("batiments_export.zip", "rb") as f:
+                                    st.download_button("⬇️ Télécharger (Shapefile)", f, "batiments.zip", "application/zip")
+
+                        # Nettoyage
+                        shutil.rmtree("batiments_temp", ignore_errors=True)
+                        if os.path.exists("batiments_temp.zip"):
+                            os.remove("batiments_temp.zip")
+                    else:
+                        st.error(f"Erreur lors du téléchargement des données : {response.status_code}")
                 else:
-                    st.error("Aucune donnée trouvée pour cette zone.")
+                    st.error("Aucune donnée trouvée pour cette zone ou l'URL est incorrecte.")
             except Exception as e:
                 st.error(f"Erreur de téléchargement : {e}")
