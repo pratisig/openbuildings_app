@@ -21,8 +21,8 @@ def charger_pays():
 countries_gdf = charger_pays()
 
 if option == "Sélectionner un pays":
-    pays = st.selectbox("🌍 Choisissez un pays :", sorted(countries_gdf["ADMIN"].unique()))
-    zone = countries_gdf[countries_gdf["ADMIN"] == pays]
+    pays = st.selectbox("🌍 Choisissez un pays :", sorted(countries_gdf["name"].unique()))
+    zone = countries_gdf[countries_gdf["name"] == pays]
 else:
     wkt_string = st.text_area("✏️ Collez un polygone au format WKT :")
     zone = None
