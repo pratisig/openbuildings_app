@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import pydeck as pdk
+from typing import Tuple  # <-- Ajouté ici
 
 # Constants (example)
 BUILDING_DOWNLOAD_PATH = 'gs://open-buildings-data/v3/{data_type}_s2_level_6_gzip_no_header'
