@@ -1,13 +1,16 @@
 import streamlit as st
 import geopandas as gpd
 from shapely import wkt
+from shapely.geometry import Polygon
 import requests
 import zipfile
 import os
 import shutil
 import pydeck as pdk
+from geopandas import GeoSeries
 
 st.set_page_config(page_title="Open Buildings Downloader", layout="wide")
+
 st.title("🧱 Téléchargement des bâtiments (Google Open Buildings)")
 
 # Choix de l'entrée utilisateur
@@ -20,22 +23,22 @@ def charger_pays():
 
 countries_gdf = charger_pays()
 
-zone = None  # Initialisation
-
 if option == "Sélectionner un pays":
     pays = st.selectbox("🌍 Choisissez un pays :", sorted(countries_gdf["name"].unique()))
     zone = countries_gdf[countries_gdf["name"] == pays]
 else:
     wkt_string = st.text_area("✏️ Collez un polygone au format WKT :")
+    zone = None
     if wkt_string:
         try:
             geom = wkt.loads(wkt_string)
-            zone = gpd.GeoDataFrame(geometry=[geom], crs="EPSG:4326")
+            zone = gpd.GeoDataFrame(geometry=GeoSeries([geom], crs="EPSG:4326"))
         except Exception as e:
             st.error(f"Erreur dans le WKT : {e}")
 
-# Si une zone est définie, afficher la carte et le bouton
-if zone is not None and not zone.empty:
+# Si une zone est définie
+if zone is not None:
+    # Affichage de la carte avec pydeck
     center = zone.geometry.centroid.iloc[0]
     layer = pdk.Layer(
         "GeoJsonLayer",
@@ -53,6 +56,7 @@ if zone is not None and not zone.empty:
 
     st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
 
+    # Télécharger les bâtiments
     if st.button("🔍 Télécharger les bâtiments de cette zone"):
         with st.spinner("Téléchargement en cours..."):
             bounds = zone.total_bounds
