@@ -8,7 +8,6 @@ import shutil
 import pydeck as pdk
 
 st.set_page_config(page_title="Open Buildings Downloader", layout="wide")
-
 st.title("🧱 Téléchargement des bâtiments (Google Open Buildings)")
 
 # Choix de l'entrée utilisateur
@@ -21,12 +20,13 @@ def charger_pays():
 
 countries_gdf = charger_pays()
 
+zone = None  # Initialisation
+
 if option == "Sélectionner un pays":
     pays = st.selectbox("🌍 Choisissez un pays :", sorted(countries_gdf["name"].unique()))
     zone = countries_gdf[countries_gdf["name"] == pays]
 else:
     wkt_string = st.text_area("✏️ Collez un polygone au format WKT :")
-    zone = None
     if wkt_string:
         try:
             geom = wkt.loads(wkt_string)
@@ -34,29 +34,24 @@ else:
         except Exception as e:
             st.error(f"Erreur dans le WKT : {e}")
 
-# Si une zone est définie
-if zone is not None:
-    zone = gpd.GeoDataFrame(geometry=[wkt.loads(polygone_wkt)], crs="EPSG:4326")
+# Si une zone est définie, afficher la carte et le bouton
+if zone is not None and not zone.empty:
+    center = zone.geometry.centroid.iloc[0]
+    layer = pdk.Layer(
+        "GeoJsonLayer",
+        data=zone.__geo_interface__,
+        get_fill_color="[180, 180, 255, 140]",
+        pickable=True,
+    )
 
-import pydeck as pdk
+    view_state = pdk.ViewState(
+        latitude=center.y,
+        longitude=center.x,
+        zoom=6,
+        pitch=0
+    )
 
-center = zone.geometry.centroid.iloc[0]
-layer = pdk.Layer(
-    "GeoJsonLayer",
-    data=zone.__geo_interface__,
-    get_fill_color="[180, 180, 255, 140]",
-    pickable=True,
-)
-
-view_state = pdk.ViewState(
-    latitude=center.y,
-    longitude=center.x,
-    zoom=6,
-    pitch=0
-)
-
-st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
-
+    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
 
     if st.button("🔍 Télécharger les bâtiments de cette zone"):
         with st.spinner("Téléchargement en cours..."):
